@@ -44,6 +44,11 @@ def main(in_args):
         road_net = "28_7"
         traffic_file_list = ["anon_28_7_newyork_real_double.json", "anon_28_7_newyork_real_triple.json"]
         template = "NewYork"
+    elif in_args.dataset == 'synthetic_1X1':
+        count = 3600
+        road_net = "1_1"
+        traffic_file_list = ["anon_1_1_synthetic.json"]
+        template = "Synthetic"
 
     if in_args.prompt == "Commonsense":
         in_args.memo = "ChatGPTTLCSCommonsense"

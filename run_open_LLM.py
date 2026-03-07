@@ -48,6 +48,12 @@ def main(in_args):
         road_net = "28_7"
         traffic_file_list = ["anon_28_7_newyork_real_double.json", "anon_28_7_newyork_real_triple.json"]
         template = "NewYork"
+    elif in_args.dataset == 'custom':
+        count = 300          # short simulation - change to 3600 for full run
+        road_net = "1_1"
+        traffic_file_list = ["flow_1_1_custom.json"]
+        template = "Custom"
+
     in_args.model = in_args.memo
 
     if "24h" in in_args.traffic_file:
