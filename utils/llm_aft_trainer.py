@@ -746,7 +746,7 @@ class LLM_Inference:
                 prompts.append(prompt)
             inputs = self.tokenizer(prompts, truncation=True, max_length=2048, padding=True, return_tensors='pt').to('cuda')
             print("Prompts", prompts)
-            input("Press Enter to continue...")
+            # input("Press Enter to continue...")
             responses = []
             previous_flag = 0
             for i in range(len(current_states)):
