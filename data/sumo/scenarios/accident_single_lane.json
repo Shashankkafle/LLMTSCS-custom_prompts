@@ -1,0 +1,15 @@
+{
+  "scenario_name": "accident_single_lane",
+  "description": "Single-vehicle accident blocking lane 0 of the west approach (W2TLS_0) from step 300 to step 900 (5-minute incident during the first hour).",
+  "blockages": [
+    {
+      "blockage_id": "b1",
+      "lane_id": "W2TLS_0",
+      "position": 80.0,
+      "start_step": 300,
+      "end_step": 900,
+      "method": "obstacle_vehicle",
+      "severity": 1.0
+    }
+  ]
+}

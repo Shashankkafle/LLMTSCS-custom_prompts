@@ -1,0 +1,5 @@
+{
+  "scenario_name": "baseline",
+  "description": "No lane blockages; used as a control run against incident scenarios.",
+  "blockages": []
+}

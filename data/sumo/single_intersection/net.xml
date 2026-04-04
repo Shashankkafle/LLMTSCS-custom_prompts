@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Single-intersection SUMO network — hand-written for SUMO 1.18+
+
+    NODE NAMING
+      N, S, E, W : dead-end approach nodes (200 m from intersection centre)
+      TLS         : central traffic-light junction at (200, 200)
+
+    EDGE NAMING  {source}2{dest}
+      Inbound  : N2TLS  S2TLS  E2TLS  W2TLS
+      Outbound : TLS2N  TLS2S  TLS2E  TLS2W
+
+    LANE IDs  {edge_id}_{lane_index}   (SUMO convention)
+      Lane 0 = through movement (right / curb lane)
+      Lane 1 = left-turn movement (left lane)
+      Examples: W2TLS_0  W2TLS_1  N2TLS_0  N2TLS_1
+
+    GREEN PHASE ACTION → SUMO PHASE INDEX  (see sumo_env.py)
+      Action 0 → Phase 0  (N-S through, 30 s)
+      Action 1 → Phase 2  (N-S left,    30 s)
+      Action 2 → Phase 4  (E-W through, 30 s)
+      Action 3 → Phase 6  (E-W left,    30 s)
+      Odd phase indices are 3 s yellow transitions.
+
+    TLS LINK INDEX ORDER  (state-string bit positions, rightmost = index 0)
+      0 : N2TLS_0 → TLS2S_0   N-S through from N
+      1 : S2TLS_0 → TLS2N_0   N-S through from S
+      2 : N2TLS_1 → TLS2E_0   N-S left    from N (→ east)
+      3 : S2TLS_1 → TLS2W_0   N-S left    from S (→ west)
+      4 : E2TLS_0 → TLS2W_0   E-W through from E
+      5 : W2TLS_0 → TLS2E_0   E-W through from W
+      6 : E2TLS_1 → TLS2S_0   E-W left    from E (→ south)
+      7 : W2TLS_1 → TLS2N_0   E-W left    from W (→ north)
+
+    COORDINATE SYSTEM
+      TLS at (200, 200).  Approach nodes 200 m away on each cardinal axis.
+      Junction box spans ±6.4 m around TLS centre → lane shapes are ~193.6 m.
+      Lane width = 3.2 m;  lane 0 offset = −1.6 m (right), lane 1 = +1.6 m (left)
+      from the edge centre-line (right-hand traffic, SUMO convention).
+-->
+<net version="1.16" junctionCornerDetail="5" limitTurnSpeed="5.50"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/net_file.xsd">
+
+    <location netOffset="0.00,0.00"
+              convBoundary="-5.00,-5.00,405.00,405.00"
+              origBoundary="-10000000000.00,-10000000000.00,10000000000.00,10000000000.00"
+              projParameter="!"/>
+
+    <!-- ═══════════════════════════════════════════════════
+         TRAFFIC LIGHT LOGIC
+         8 phases: 4 green (30 s) interleaved with 4 yellow (3 s)
+         State string: 8 chars, position i = link index i (rightmost = 0).
+         ═══════════════════════════════════════════════════ -->
+    <tlLogic id="TLS" type="static" programID="0" offset="0">
+        <!-- Phase 0  action 0 : N-S through -->
+        <phase duration="30" state="GGrrrrrr"/>
+        <!-- Phase 1  yellow -->
+        <phase duration="3"  state="yyrrrrrr"/>
+        <!-- Phase 2  action 1 : N-S left -->
+        <phase duration="30" state="rrGGrrrr"/>
+        <!-- Phase 3  yellow -->
+        <phase duration="3"  state="rryyrrrr"/>
+        <!-- Phase 4  action 2 : E-W through -->
+        <phase duration="30" state="rrrrGGrr"/>
+        <!-- Phase 5  yellow -->
+        <phase duration="3"  state="rrrryyrr"/>
+        <!-- Phase 6  action 3 : E-W left -->
+        <phase duration="30" state="rrrrrrGG"/>
+        <!-- Phase 7  yellow -->
+        <phase duration="3"  state="rrrrrryy"/>
+    </tlLogic>
+
+    <!-- ═══════════════════════════════════════════════════
+         JUNCTIONS
+         ═══════════════════════════════════════════════════ -->
+
+    <!-- Dead-end approach nodes -->
+    <junction id="N" type="dead_end" x="200.00" y="400.00"
+              incLanes="TLS2N_0 TLS2N_1" intLanes=""
+              shape="196.80,400.00 203.20,400.00"/>
+    <junction id="S" type="dead_end" x="200.00" y="0.00"
+              incLanes="TLS2S_0 TLS2S_1" intLanes=""
+              shape="203.20,0.00 196.80,0.00"/>
+    <junction id="E" type="dead_end" x="400.00" y="200.00"
+              incLanes="TLS2E_0 TLS2E_1" intLanes=""
+              shape="400.00,203.20 400.00,196.80"/>
+    <junction id="W" type="dead_end" x="0.00" y="200.00"
+              incLanes="TLS2W_0 TLS2W_1" intLanes=""
+              shape="0.00,196.80 0.00,203.20"/>
+
+    <!-- Central traffic-light junction -->
+    <junction id="TLS" type="traffic_light" x="200.00" y="200.00"
+              incLanes="N2TLS_0 N2TLS_1 S2TLS_0 S2TLS_1 E2TLS_0 E2TLS_1 W2TLS_0 W2TLS_1"
+              intLanes=":TLS_0_0 :TLS_1_0 :TLS_2_0 :TLS_3_0 :TLS_4_0 :TLS_5_0 :TLS_6_0 :TLS_7_0"
+              shape="193.60,193.60 206.40,193.60 206.40,206.40 193.60,206.40">
+        <!--
+            foes bitmask: leftmost char = link 7, rightmost = link 0.
+            Links in the same phase do not conflict; all cross-phase links do.
+              Phase 0: links 0,1   Phase 2: links 2,3
+              Phase 4: links 4,5   Phase 6: links 6,7
+        -->
+        <request index="0" response="00000000" foes="11111100" cont="0"/>
+        <request index="1" response="00000000" foes="11111100" cont="0"/>
+        <request index="2" response="00000000" foes="11110011" cont="0"/>
+        <request index="3" response="00000000" foes="11110011" cont="0"/>
+        <request index="4" response="00000000" foes="11001111" cont="0"/>
+        <request index="5" response="00000000" foes="11001111" cont="0"/>
+        <request index="6" response="00000000" foes="00111111" cont="0"/>
+        <request index="7" response="00000000" foes="00111111" cont="0"/>
+    </junction>
+
+    <!-- ═══════════════════════════════════════════════════
+         INBOUND EDGES  (approach → TLS)
+         Speed 13.89 m/s ≈ 50 km/h.  Lane length ≈ 193.6 m.
+         Lane 0 (right/through): offset −1.6 m from centre-line.
+         Lane 1 (left-turn):     offset +1.6 m from centre-line.
+         ═══════════════════════════════════════════════════ -->
+
+    <!-- N2TLS : from N(200,400) heading south; right = west (−x) -->
+    <edge id="N2TLS" from="N" to="TLS" priority="7" numLanes="2" speed="13.89">
+        <lane index="0" speed="13.89" length="193.60" width="3.20"
+              shape="198.40,400.00 198.40,206.40"/>
+        <lane index="1" speed="13.89" length="193.60" width="3.20"
+              shape="201.60,400.00 201.60,206.40"/>
+    </edge>
+
+    <!-- S2TLS : from S(200,0) heading north; right = east (+x) -->
+    <edge id="S2TLS" from="S" to="TLS" priority="7" numLanes="2" speed="13.89">
+        <lane index="0" speed="13.89" length="193.60" width="3.20"
+              shape="201.60,0.00 201.60,193.60"/>
+        <lane index="1" speed="13.89" length="193.60" width="3.20"
+              shape="198.40,0.00 198.40,193.60"/>
+    </edge>
+
+    <!-- E2TLS : from E(400,200) heading west; right = south (−y) -->
+    <edge id="E2TLS" from="E" to="TLS" priority="7" numLanes="2" speed="13.89">
+        <lane index="0" speed="13.89" length="193.60" width="3.20"
+              shape="400.00,201.60 206.40,201.60"/>
+        <lane index="1" speed="13.89" length="193.60" width="3.20"
+              shape="400.00,198.40 206.40,198.40"/>
+    </edge>
+
+    <!-- W2TLS : from W(0,200) heading east; right = south (−y) -->
+    <edge id="W2TLS" from="W" to="TLS" priority="7" numLanes="2" speed="13.89">
+        <lane index="0" speed="13.89" length="193.60" width="3.20"
+              shape="0.00,198.40 193.60,198.40"/>
+        <lane index="1" speed="13.89" length="193.60" width="3.20"
+              shape="0.00,201.60 193.60,201.60"/>
+    </edge>
+
+    <!-- ═══════════════════════════════════════════════════
+         OUTBOUND EDGES  (TLS → departure)
+         ═══════════════════════════════════════════════════ -->
+
+    <!-- TLS2N : from TLS heading north; right = east (+x) -->
+    <edge id="TLS2N" from="TLS" to="N" priority="7" numLanes="2" speed="13.89">
+        <lane index="0" speed="13.89" length="193.60" width="3.20"
+              shape="201.60,206.40 201.60,400.00"/>
+        <lane index="1" speed="13.89" length="193.60" width="3.20"
+              shape="198.40,206.40 198.40,400.00"/>
+    </edge>
+
+    <!-- TLS2S : from TLS heading south; right = west (−x) -->
+    <edge id="TLS2S" from="TLS" to="S" priority="7" numLanes="2" speed="13.89">
+        <lane index="0" speed="13.89" length="193.60" width="3.20"
+              shape="198.40,193.60 198.40,0.00"/>
+        <lane index="1" speed="13.89" length="193.60" width="3.20"
+              shape="201.60,193.60 201.60,0.00"/>
+    </edge>
+
+    <!-- TLS2E : from TLS heading east; right = south (−y) -->
+    <edge id="TLS2E" from="TLS" to="E" priority="7" numLanes="2" speed="13.89">
+        <lane index="0" speed="13.89" length="193.60" width="3.20"
+              shape="206.40,198.40 400.00,198.40"/>
+        <lane index="1" speed="13.89" length="193.60" width="3.20"
+              shape="206.40,201.60 400.00,201.60"/>
+    </edge>
+
+    <!-- TLS2W : from TLS heading west; right = north (+y) -->
+    <edge id="TLS2W" from="TLS" to="W" priority="7" numLanes="2" speed="13.89">
+        <lane index="0" speed="13.89" length="193.60" width="3.20"
+              shape="193.60,201.60 0.00,201.60"/>
+        <lane index="1" speed="13.89" length="193.60" width="3.20"
+              shape="193.60,198.40 0.00,198.40"/>
+    </edge>
+
+    <!-- ═══════════════════════════════════════════════════
+         INTERNAL EDGES  (within TLS junction box)
+         Named :TLS_{linkIndex};  one internal lane per link.
+         Through lanes: speed 13.89 m/s, length 12.80 m.
+         Left-turn lanes: speed 5.50 m/s (limitTurnSpeed), length ~9.33 m.
+         ═══════════════════════════════════════════════════ -->
+
+    <!-- Link 0 : N2TLS_0 → TLS2S_0  (N-S through from N) -->
+    <edge id=":TLS_0" function="internal">
+        <lane id=":TLS_0_0" index="0" speed="13.89" length="12.80"
+              shape="198.40,206.40 198.40,193.60"/>
+    </edge>
+
+    <!-- Link 1 : S2TLS_0 → TLS2N_0  (N-S through from S) -->
+    <edge id=":TLS_1" function="internal">
+        <lane id=":TLS_1_0" index="0" speed="13.89" length="12.80"
+              shape="201.60,193.60 201.60,206.40"/>
+    </edge>
+
+    <!-- Link 2 : N2TLS_1 → TLS2E_0  (N-S left from N → east) -->
+    <edge id=":TLS_2" function="internal">
+        <lane id=":TLS_2_0" index="0" speed="5.50" length="9.33"
+              shape="201.60,206.40 206.40,198.40"/>
+    </edge>
+
+    <!-- Link 3 : S2TLS_1 → TLS2W_0  (N-S left from S → west) -->
+    <edge id=":TLS_3" function="internal">
+        <lane id=":TLS_3_0" index="0" speed="5.50" length="9.33"
+              shape="198.40,193.60 193.60,201.60"/>
+    </edge>
+
+    <!-- Link 4 : E2TLS_0 → TLS2W_0  (E-W through from E) -->
+    <edge id=":TLS_4" function="internal">
+        <lane id=":TLS_4_0" index="0" speed="13.89" length="12.80"
+              shape="206.40,201.60 193.60,201.60"/>
+    </edge>
+
+    <!-- Link 5 : W2TLS_0 → TLS2E_0  (E-W through from W) -->
+    <edge id=":TLS_5" function="internal">
+        <lane id=":TLS_5_0" index="0" speed="13.89" length="12.80"
+              shape="193.60,198.40 206.40,198.40"/>
+    </edge>
+
+    <!-- Link 6 : E2TLS_1 → TLS2S_0  (E-W left from E → south) -->
+    <edge id=":TLS_6" function="internal">
+        <lane id=":TLS_6_0" index="0" speed="5.50" length="9.33"
+              shape="206.40,198.40 198.40,193.60"/>
+    </edge>
+
+    <!-- Link 7 : W2TLS_1 → TLS2N_0  (E-W left from W → north) -->
+    <edge id=":TLS_7" function="internal">
+        <lane id=":TLS_7_0" index="0" speed="5.50" length="9.33"
+              shape="193.60,201.60 201.60,206.40"/>
+    </edge>
+
+    <!-- ═══════════════════════════════════════════════════
+         CONNECTIONS at TLS
+         tl / linkIndex tie each connection to a TLS state-string bit.
+         dir: s=straight, l=left.  state="o" = TLS-controlled.
+         ═══════════════════════════════════════════════════ -->
+
+    <!-- N-S through -->
+    <connection from="N2TLS" to="TLS2S" fromLane="0" toLane="0"
+                via=":TLS_0_0" tl="TLS" linkIndex="0" dir="s" state="o"/>
+    <connection from="S2TLS" to="TLS2N" fromLane="0" toLane="0"
+                via=":TLS_1_0" tl="TLS" linkIndex="1" dir="s" state="o"/>
+
+    <!-- N-S left turns -->
+    <connection from="N2TLS" to="TLS2E" fromLane="1" toLane="0"
+                via=":TLS_2_0" tl="TLS" linkIndex="2" dir="l" state="o"/>
+    <connection from="S2TLS" to="TLS2W" fromLane="1" toLane="0"
+                via=":TLS_3_0" tl="TLS" linkIndex="3" dir="l" state="o"/>
+
+    <!-- E-W through -->
+    <connection from="E2TLS" to="TLS2W" fromLane="0" toLane="0"
+                via=":TLS_4_0" tl="TLS" linkIndex="4" dir="s" state="o"/>
+    <connection from="W2TLS" to="TLS2E" fromLane="0" toLane="0"
+                via=":TLS_5_0" tl="TLS" linkIndex="5" dir="s" state="o"/>
+
+    <!-- E-W left turns -->
+    <connection from="E2TLS" to="TLS2S" fromLane="1" toLane="0"
+                via=":TLS_6_0" tl="TLS" linkIndex="6" dir="l" state="o"/>
+    <connection from="W2TLS" to="TLS2N" fromLane="1" toLane="0"
+                via=":TLS_7_0" tl="TLS" linkIndex="7" dir="l" state="o"/>
+
+    <!-- Internal connections (within junction: internal lane → exit edge) -->
+    <connection from=":TLS_0" to="TLS2S" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":TLS_1" to="TLS2N" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":TLS_2" to="TLS2E" fromLane="0" toLane="0" dir="l" state="M"/>
+    <connection from=":TLS_3" to="TLS2W" fromLane="0" toLane="0" dir="l" state="M"/>
+    <connection from=":TLS_4" to="TLS2W" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":TLS_5" to="TLS2E" fromLane="0" toLane="0" dir="s" state="M"/>
+    <connection from=":TLS_6" to="TLS2S" fromLane="0" toLane="0" dir="l" state="M"/>
+    <connection from=":TLS_7" to="TLS2N" fromLane="0" toLane="0" dir="l" state="M"/>
+
+</net>

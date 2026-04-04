@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Demand file for the single-intersection SUMO network.
+
+    ~200 veh/hr per approach for 3600 s simulation.
+      Lane 0 (through): 150 veh/hr  departLane="0"
+      Lane 1 (left):     50 veh/hr  departLane="1"
+
+    Routes follow the connections defined in net.xml:
+      N → S  (through)     N → E  (left)
+      S → N  (through)     S → W  (left)
+      E → W  (through)     E → S  (left)
+      W → E  (through)     W → N  (left)
+-->
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+
+    <!-- Explicit vehicle type so blockage_manager can also reference it -->
+    <vType id="DEFAULT_VEHTYPE"
+           accel="2.6" decel="4.5" sigma="0.5"
+           length="5.0" minGap="2.5" maxSpeed="13.89"
+           guiShape="passenger"/>
+
+    <!-- Named routes (edge sequences) -->
+    <route id="r_N_S" edges="N2TLS TLS2S"/>
+    <route id="r_N_E" edges="N2TLS TLS2E"/>
+    <route id="r_S_N" edges="S2TLS TLS2N"/>
+    <route id="r_S_W" edges="S2TLS TLS2W"/>
+    <route id="r_E_W" edges="E2TLS TLS2W"/>
+    <route id="r_E_S" edges="E2TLS TLS2S"/>
+    <route id="r_W_E" edges="W2TLS TLS2E"/>
+    <route id="r_W_N" edges="W2TLS TLS2N"/>
+
+    <!-- North approach -->
+    <flow id="flow_N_S" route="r_N_S" begin="0" end="3600"
+          vehsPerHour="150" type="DEFAULT_VEHTYPE"
+          departLane="0" departSpeed="0" arrivalLane="current"/>
+    <flow id="flow_N_E" route="r_N_E" begin="0" end="3600"
+          vehsPerHour="50"  type="DEFAULT_VEHTYPE"
+          departLane="1" departSpeed="0" arrivalLane="current"/>
+
+    <!-- South approach -->
+    <flow id="flow_S_N" route="r_S_N" begin="0" end="3600"
+          vehsPerHour="150" type="DEFAULT_VEHTYPE"
+          departLane="0" departSpeed="0" arrivalLane="current"/>
+    <flow id="flow_S_W" route="r_S_W" begin="0" end="3600"
+          vehsPerHour="50"  type="DEFAULT_VEHTYPE"
+          departLane="1" departSpeed="0" arrivalLane="current"/>
+
+    <!-- East approach -->
+    <flow id="flow_E_W" route="r_E_W" begin="0" end="3600"
+          vehsPerHour="150" type="DEFAULT_VEHTYPE"
+          departLane="0" departSpeed="0" arrivalLane="current"/>
+    <flow id="flow_E_S" route="r_E_S" begin="0" end="3600"
+          vehsPerHour="50"  type="DEFAULT_VEHTYPE"
+          departLane="1" departSpeed="0" arrivalLane="current"/>
+
+    <!-- West approach -->
+    <flow id="flow_W_E" route="r_W_E" begin="0" end="3600"
+          vehsPerHour="150" type="DEFAULT_VEHTYPE"
+          departLane="0" departSpeed="0" arrivalLane="current"/>
+    <flow id="flow_W_N" route="r_W_N" begin="0" end="3600"
+          vehsPerHour="50"  type="DEFAULT_VEHTYPE"
+          departLane="1" departSpeed="0" arrivalLane="current"/>
+
+</routes>

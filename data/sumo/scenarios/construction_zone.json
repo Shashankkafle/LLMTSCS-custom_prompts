@@ -1,0 +1,24 @@
+{
+  "scenario_name": "construction_zone",
+  "description": "Construction zone on the west approach reducing both lanes (W2TLS_0 and W2TLS_1) to 40% of normal speed from step 100 until the end of the episode.",
+  "blockages": [
+    {
+      "blockage_id": "cz_lane0",
+      "lane_id": "W2TLS_0",
+      "position": 100.0,
+      "start_step": 100,
+      "end_step": null,
+      "method": "speed_restriction",
+      "severity": 0.6
+    },
+    {
+      "blockage_id": "cz_lane1",
+      "lane_id": "W2TLS_1",
+      "position": 100.0,
+      "start_step": 100,
+      "end_step": null,
+      "method": "speed_restriction",
+      "severity": 0.6
+    }
+  ]
+}
