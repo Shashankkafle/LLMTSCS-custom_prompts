@@ -21,7 +21,8 @@
 | **[5 LightGPT Training](#lightgpt-training)** 
 | **[6 Code structure](#code-structure)** 
 | **[7 Datasets](#datasets)**
-| **[8 Citation](#citation)**
+| **[8 SUMO Backend](#sumo-backend)**
+| **[9 Citation](#citation)**
 | **[Website](https://sqlai2099.github.io/LLMLight-Page/)** |
 
 </p>
@@ -199,11 +200,19 @@ Similarly, we merge the adapter with the base model by running `merge_lora.py`.
 
 - `models`: contains all the models used in our article.
 - `utils`: contains all the methods to simulate and train the models.
+  - `utils/sumo_env.py`: SUMO backend environment (parallel to `cityflow_env.py`).
+  - `utils/blockage_manager.py`: lane blockage injection via TraCI.
+  - `utils/scenario_config.py`: JSON scenario loader.
 - `frontend`: contains visual replay files of different agents.
 - `errors`: contains error logs of ChatGPT agents.
 - `{LLM_MODEL}_logs`: contains dialog log files of a LLM.
 - `prompts`: contains base prompts of ChatGPT agents.
+  - `prompts/sumo_blockage_prompt.py`: SUMO blockage-aware and standard LLM prompts.
 - `finetune`: contains codes for LightGPT training.
+- `data/sumo/`: SUMO network, demand, and scenario files.
+- `run_sumo_open_llm.py`: LLM agent runner for SUMO.
+- `run_sumo_baseline.py`: Heuristic baseline runner for SUMO.
+- `evaluate_sumo.py`: Evaluation and comparison script for SUMO results.
 
 <a id="datasets"></a>
 ## 7 Datasets
@@ -241,9 +250,154 @@ Similarly, we merge the adapter with the base model by running `merge_lora.py`.
     </tr>
 </table>
 
+<a id="sumo-backend"></a>
+
+## 8 SUMO Backend
+
+An alternative simulation backend using [SUMO](https://sumo.dlr.de/) is available alongside the existing CityFlow backend.
+SUMO enables mid-simulation lane blockage injection (accidents, construction zones) and is controlled via the same phase-action interface.
+
+> **Execution note:** SUMO simulations must be executed on the remote machine where SUMO is installed.
+> Code can be edited locally and pushed; run the scripts on the server.
+
+### Installation
+
+1. Install SUMO 1.18+ following the [official guide](https://sumo.dlr.de/docs/Installing/index.html).
+   `traci` and `sumolib` ship with SUMO and are placed on `PYTHONPATH` automatically.
+   Alternatively, install via pip (see caveats in `requirements_sumo.txt`):
+   ```shell
+   pip install eclipse-sumo
+   ```
+
+2. Verify SUMO is on `PATH`:
+   ```shell
+   sumo --version
+   ```
+
+### Running the heuristic baseline
+
+```shell
+# Fixed-time controller, no blockages
+python run_sumo_baseline.py \
+    --scenario data/sumo/scenarios/baseline.json \
+    --controller fixedtime \
+    --num_episodes 3
+
+# Max-pressure controller with an accident scenario
+python run_sumo_baseline.py \
+    --scenario data/sumo/scenarios/accident_single_lane.json \
+    --controller maxpressure \
+    --num_episodes 3
+
+# Open SUMO-GUI for visualisation
+python run_sumo_baseline.py \
+    --scenario data/sumo/scenarios/construction_zone.json \
+    --controller fixedtime \
+    --use_gui
+```
+
+### Running the LLM agent
+
+```shell
+# Commonsense prompt (matches CityFlow Commonsense style)
+python run_sumo_open_llm.py \
+    --llm_model my_model \
+    --llm_path /path/to/model \
+    --scenario data/sumo/scenarios/baseline.json \
+    --prompt_type commonsense \
+    --num_episodes 3
+
+# Blockage-aware prompt (falls back to waittime with a WARNING when no blockages are active)
+python run_sumo_open_llm.py \
+    --llm_model my_model \
+    --llm_path /path/to/model \
+    --scenario data/sumo/scenarios/accident_single_lane.json \
+    --prompt_type blockage_aware \
+    --num_episodes 3
+```
+
+### Evaluating results
+
+```shell
+# Single run summary
+python evaluate_sumo.py results/sumo/SumoBaseline/baseline_05_01_12_00_00
+
+# Side-by-side comparison (baseline vs LLM, or no-blockage vs blockage)
+python evaluate_sumo.py \
+    results/sumo/SumoBaseline/baseline_05_01_12_00_00 \
+    results/sumo/SumoLLMRun/accident_single_lane_05_01_12_30_00 \
+    --output_csv comparison.csv
+```
+
+Metrics reported (`test_avg_travel_time`, `test_avg_queue_len`, `test_queuing_vehicle_num`,
+`test_avg_waiting_time`, throughput) use identical keys to the CityFlow `model_test.py`
+output, so results from both backends can be compared directly.
+
+### Defining a custom blockage scenario
+
+Create a JSON file in `data/sumo/scenarios/` (or any path).
+Lane IDs follow the network naming convention `{direction}2TLS_{lane_index}`:
+
+| Direction | Through lane | Left-turn lane |
+|-----------|-------------|----------------|
+| North     | `N2TLS_0`   | `N2TLS_1`      |
+| South     | `S2TLS_0`   | `S2TLS_1`      |
+| East      | `E2TLS_0`   | `E2TLS_1`      |
+| West      | `W2TLS_0`   | `W2TLS_1`      |
+
+```json
+{
+  "scenario_name": "my_scenario",
+  "description": "Custom blockage description.",
+  "blockages": [
+    {
+      "blockage_id": "b1",
+      "lane_id": "W2TLS_0",
+      "position": 80.0,
+      "start_step": 300,
+      "end_step": 900,
+      "method": "obstacle_vehicle",
+      "severity": 1.0
+    },
+    {
+      "blockage_id": "b2",
+      "lane_id": "W2TLS_1",
+      "position": 100.0,
+      "start_step": 100,
+      "end_step": null,
+      "method": "speed_restriction",
+      "severity": 0.6
+    }
+  ]
+}
+```
+
+**`method` options:**
+- `"obstacle_vehicle"` — inserts a stationary vehicle (full blockage; `severity` ignored).
+- `"speed_restriction"` — reduces lane max speed by `severity × 100 %`
+  (e.g. `severity=0.6` → 60 % speed reduction; `severity=1.0` → speed = 0).
+
+**`end_step`: `null`** means the blockage lasts until the episode ends.
+
+### SUMO network summary
+
+Single intersection (`data/sumo/single_intersection/`):
+- 4 approaches × 2 lanes each, edge length 200 m, speed limit 50 km/h
+- 4 green phases + 4 yellow transitions (8-phase TLS programme)
+- Default demand: ~200 veh/hr per approach for 3600 s
+
+Phase → action mapping (in `utils/sumo_env.py`):
+
+| Action | SUMO phase | Movement    |
+|--------|-----------|-------------|
+| 0      | 0         | N-S through |
+| 1      | 2         | N-S left    |
+| 2      | 4         | E-W through |
+| 3      | 6         | E-W left    |
+
 <a id="citation"></a>
 
-## 8 Citation
+## 9 Citation
 
 ```
 @misc{lai2024llmlight,
