@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-    SUMO configuration for the single-intersection scenario.
-    Step length is 1.0 s so that 1 simulation step == 1 second.
-    Run with:  sumo -c run.sumocfg
-    GUI:       sumo-gui -c run.sumocfg
-    TraCI:     sumo -c run.sumocfg --remote-port <PORT>
--->
+
 <configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">
 
