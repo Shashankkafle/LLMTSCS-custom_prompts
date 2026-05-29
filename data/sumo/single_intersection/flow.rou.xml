@@ -31,7 +31,7 @@
     <route id="r_W_E" edges="W2TLS TLS2E"/>
     <route id="r_W_N" edges="W2TLS TLS2N"/>
 
-    <!-- North approach -->
+<!--     
     <flow id="flow_N_S" route="r_N_S" begin="0" end="3600"
           vehsPerHour="150" type="DEFAULT_VEHTYPE"
           departLane="0" departSpeed="0" arrivalLane="current"/>
@@ -39,7 +39,7 @@
           vehsPerHour="50"  type="DEFAULT_VEHTYPE"
           departLane="1" departSpeed="0" arrivalLane="current"/>
 
-    <!-- South approach -->
+    
     <flow id="flow_S_N" route="r_S_N" begin="0" end="3600"
           vehsPerHour="150" type="DEFAULT_VEHTYPE"
           departLane="0" departSpeed="0" arrivalLane="current"/>
@@ -47,7 +47,7 @@
           vehsPerHour="50"  type="DEFAULT_VEHTYPE"
           departLane="1" departSpeed="0" arrivalLane="current"/>
 
-    <!-- East approach -->
+    
     <flow id="flow_E_W" route="r_E_W" begin="0" end="3600"
           vehsPerHour="150" type="DEFAULT_VEHTYPE"
           departLane="0" departSpeed="0" arrivalLane="current"/>
@@ -55,12 +55,12 @@
           vehsPerHour="50"  type="DEFAULT_VEHTYPE"
           departLane="1" departSpeed="0" arrivalLane="current"/>
 
-    <!-- West approach -->
+    
     <flow id="flow_W_E" route="r_W_E" begin="0" end="3600"
           vehsPerHour="150" type="DEFAULT_VEHTYPE"
           departLane="0" departSpeed="0" arrivalLane="current"/>
     <flow id="flow_W_N" route="r_W_N" begin="0" end="3600"
           vehsPerHour="50"  type="DEFAULT_VEHTYPE"
-          departLane="1" departSpeed="0" arrivalLane="current"/>
+          departLane="1" departSpeed="0" arrivalLane="current"/> -->
 
 </routes>

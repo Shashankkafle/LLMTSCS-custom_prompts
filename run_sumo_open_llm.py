@@ -83,6 +83,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt_type", type=str,   default="commonsense",
                         choices=["commonsense", "waittime", "blockage_aware"],
                         help="Prompt style to use for the LLM.")
+    parser.add_argument("--no_blockage_info", action="store_true", default=False,
+                        help="Suppress blockage context from prompts even when blockages "
+                             "are active (ablation: compare with/without blockage info). "
+                             "Only affects --prompt_type blockage_aware.")
     return parser.parse_args()
 
 
@@ -143,6 +147,7 @@ def build_prompt_text(
     state: Dict[str, Any],
     active_blockages: List[Any],
     has_blockages_in_scenario: bool,
+    include_blockage_info: bool = True,
 ) -> str:
     """Build a flat prompt string from the current state.
 
@@ -186,9 +191,9 @@ def build_prompt_text(
                 "currently active at this step. Falling back to 'waittime' prompt."
             )
         effective_type = "waittime"
-
     if effective_type == "blockage_aware":
-        messages = get_blockage_prompt(lane_vc, lane_wc, active_blockages, cur_phase)
+        messages = get_blockage_prompt(lane_vc, lane_wc, active_blockages, cur_phase,
+                                       include_blockage_info=include_blockage_info)
     elif effective_type == "waittime":
         messages = get_waittime_prompt(lane_vc, lane_wc, cur_phase)
     else:  # commonsense
@@ -364,14 +369,15 @@ def _append_episode_row(
 def run_episode(
     env: Any,
     episode_idx: int,
-    model: Optional[Any],
-    tokenizer: Optional[Any],
-    generation_kwargs: Optional[Dict[str, Any]],
+    # model: Optional[Any],
+    # tokenizer: Optional[Any],
+    # generation_kwargs: Optional[Dict[str, Any]],
     prompt_type: str,
     has_blockages_in_scenario: bool,
     step_csv: str,
     fail_logs: List[Dict[str, Any]],
     fail_log_file: str,
+    include_blockage_info: bool = True,
 ) -> Dict[str, Any]:
     """Run one full simulation episode and collect metrics.
 
@@ -391,6 +397,7 @@ def run_episode(
         Dict with keys matching ``model_test.py`` metric names, plus
         ``throughput`` and ``state_action_log``.
     """
+    model = None
     state = env.reset()
     done = False
     total_reward = 0.0
@@ -406,15 +413,22 @@ def run_episode(
         if done:
             break
 
+
         # Collect active blockages for prompt and logging.
         active_blockages = []
+        print("blockage_manager", env.blockage_manager)
         if env.blockage_manager is not None:
             active_blockages = env.blockage_manager.get_active_blockages()
 
+            prompt = build_prompt_text(
+                prompt_type, state, active_blockages, has_blockages_in_scenario,
+                include_blockage_info=include_blockage_info,
+            )
         # Build prompt and query LLM.
         if model is not None:
             prompt = build_prompt_text(
-                prompt_type, state, active_blockages, has_blockages_in_scenario
+                prompt_type, state, active_blockages, has_blockages_in_scenario,
+                include_blockage_info=include_blockage_info,
             )
             action, llm_response = query_llm(
                 model, tokenizer, generation_kwargs,
@@ -530,9 +544,9 @@ def main(in_args: argparse.Namespace) -> None:
     _safe_dump_json(run_conf,   os.path.join(run_dir, "run.conf"))
 
     # ── LLM loading (matches LLM_Inference.initialize_llm) ───────────────────
-    model, tokenizer, generation_kwargs = load_llm(
-        in_args.llm_path, in_args.new_max_tokens
-    )
+    # model, tokenizer, generation_kwargs = load_llm(
+    #     in_args.llm_path, in_args.new_max_tokens
+    # )
 
     # ── wandb initialisation (mirrors pipeline.py / oneline.py) ─────────────
     wandb_logger = None
@@ -573,18 +587,19 @@ def main(in_args: argparse.Namespace) -> None:
     for ep in range(in_args.num_episodes):
         logger.info("===== Episode %d / %d =====", ep + 1, in_args.num_episodes)
         ep_start = time.time()
-
+        print(f"\n--- Starting episode {ep + 1} ---")
         results = run_episode(
             env=env,
             episode_idx=ep,
-            model=model,
-            tokenizer=tokenizer,
-            generation_kwargs=generation_kwargs,
+            # model=model,
+            # tokenizer=tokenizer,
+            # generation_kwargs=generation_kwargs,
             prompt_type=in_args.prompt_type,
             has_blockages_in_scenario=has_blockages,
             step_csv=step_csv,
             fail_logs=fail_logs,
             fail_log_file=fail_log_file,
+            include_blockage_info=not in_args.no_blockage_info,
         )
 
         # Save per-episode state_action log (mirrors dump_json(state_action_log, ...)).

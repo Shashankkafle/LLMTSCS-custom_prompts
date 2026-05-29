@@ -21,3 +21,4 @@ memory/
 *.pyc
 *.pkl
 playground*
+.claude

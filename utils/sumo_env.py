@@ -140,7 +140,6 @@ class SumoEnv:
         sumo_cmd = [
             binary,
             "-c", self.sumocfg_path,
-            "--remote-port", str(port),
             "--no-step-log",
             "--no-warnings",
         ]

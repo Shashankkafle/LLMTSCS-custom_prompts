@@ -66,6 +66,7 @@ def load_scenario(path: str) -> Tuple[str, str, List[Blockage]]:
                 end_step=int(end_step) if end_step is not None else None,
                 method=str(raw["method"]),
                 severity=float(raw.get("severity", 1.0)),
+                intersection_id=str(raw["intersection_id"]),
             )
         )
 

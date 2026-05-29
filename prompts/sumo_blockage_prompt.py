@@ -140,6 +140,7 @@ def get_blockage_prompt(
     lane_waiting_count: Dict[str, int],
     active_blockages: List[Any],
     current_phase: int,
+    include_blockage_info: bool = True,
 ) -> List[Dict[str, str]]:
     """Build the blockage-aware LLM prompt.
 
@@ -156,6 +157,8 @@ def get_blockage_prompt(
             objects currently active (may be empty; caller ensures this is
             only called when blockages are relevant).
         current_phase:      Current green-phase action index (0–3).
+        include_blockage_info: When False, omit the "LANE BLOCKAGE CONTEXT"
+            section even if blockages are active (ablation flag).
 
     Returns:
         ``[{"role": "system", "content": ...}, {"role": "user", "content": ...}]``
@@ -178,7 +181,28 @@ def get_blockage_prompt(
     phase_def = "\n".join(phase_def_parts)
 
     state_txt = _state_to_text(lane_vehicle_count, lane_waiting_count)
-    blockage_txt = _blockage_to_text(active_blockages)
+
+    if include_blockage_info:
+        blockage_txt = _blockage_to_text(active_blockages)
+        blockage_section = (
+            "LANE BLOCKAGE CONTEXT\n"
+            "The following blockages are currently active and may restrict vehicle flow:\n"
+            f"{blockage_txt}\n\n"
+        )
+        print("Including blockage info in prompt:\n", blockage_section)
+        question = (
+            "Which phase action (0, 1, 2, or 3) will most significantly improve traffic "
+            "conditions during the next signal cycle, taking into account both congestion "
+            "levels and any active lane blockages?"
+        )
+        analysis_step = "Analyse the current traffic state and blockage context."
+    else:
+        blockage_section = ""
+        question = (
+            "Which phase action (0, 1, 2, or 3) will most significantly improve traffic "
+            "conditions during the next signal cycle?"
+        )
+        analysis_step = "Analyse the current traffic state."
 
     user_content = (
         "A traffic light regulates a four-approach intersection with Northern, Southern, "
@@ -192,18 +216,14 @@ def get_blockage_prompt(
         f"Current active phase: {current_phase}\n\n"
         "Current traffic state:\n"
         f"{state_txt}\n"
-        "LANE BLOCKAGE CONTEXT\n"
-        "The following blockages are currently active and may restrict vehicle flow:\n"
-        f"{blockage_txt}\n\n"
+        f"{blockage_section}"
         "Please answer:\n"
-        "Which phase action (0, 1, 2, or 3) will most significantly improve traffic "
-        "conditions during the next signal cycle, taking into account both congestion "
-        "levels and any active lane blockages?\n\n"
+        f"{question}\n\n"
         "Requirements:\n"
         "- Let's think step by step.\n"
         "- You can only choose one of the phase actions: 0, 1, 2, or 3.\n"
         "- You must follow these steps: "
-        "Step 1: Analyse the current traffic state and blockage context. "
+        f"Step 1: {analysis_step} "
         "Step 2: State your chosen phase action.\n"
         "- Your choice can only be given after finishing the analysis.\n"
         "- Your choice must be identified by the tag: <phase>YOUR_CHOICE</phase>."

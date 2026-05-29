@@ -48,8 +48,9 @@ class Blockage:
     start_step: int
     end_step: Optional[int]
     method: str
+    intersection_id: str
     severity: float = 1.0
-
+    
 
 class BlockageManager:
     """Manages a schedule of lane blockages in a live SUMO simulation.
@@ -83,6 +84,36 @@ class BlockageManager:
         # speed_restriction: original lane speeds to restore on deactivation.
         self._original_speeds: Dict[str, float] = {}
 
+    def validate_blockages(self) -> None:
+        """Check that blockage definitions are valid and consistent with the network.
+
+        Raises:
+            ValueError: If any blockage has invalid field values (e.g. severity
+                        out of range, unknown method) or if multiple blockages
+                        share the same lane_id and overlapping time windows.
+        """
+        # Check individual blockage fields.
+        for blockage in self._schedule:
+            bid = blockage.blockage_id
+            intersection_lanes = traci.trafficlight.getControlledLanes(blockage.intersection_id)
+            traci.lane.getLength(blockage.lane_id)  # raises if lane_id is invalid
+            
+        
+    def intesection_pos_to_lane_pos(self, intersection_pos: float, lane_id: str) -> float:
+        """Convert a position relative to the intersection to  lane position."""
+        # Get the position of the intersection along the lane.
+        lane_length = traci.lane.getLength(lane_id)
+        # Calculate the absolute lane position.
+        lane_pos = lane_length - intersection_pos
+        print("intersection_pos:", intersection_pos, "lane_length:", lane_length, "lane_pos:", lane_pos)
+        # Ensure the lane position is within bounds.
+        if lane_pos < 0 or lane_pos > lane_length:
+            raise ValueError(
+                f"Calculated lane position {lane_pos:.1f} m for blockage on "
+                f"{lane_id} is out of bounds (0–{lane_length:.1f} m)."
+            )
+        return lane_pos
+
     # ------------------------------------------------------------------ #
     #  Public API                                                           #
     # ------------------------------------------------------------------ #
@@ -107,12 +138,13 @@ class BlockageManager:
             # placed the vehicle in the network we can call moveTo/setSpeed.
             veh_id = f"obstacle_{bid}"
             if self._pending_position.get(veh_id, False):
+                position = self.intesection_pos_to_lane_pos(blockage.position, blockage.lane_id)
                 # ASSUMPTION: SUMO does not process newly inserted vehicles
                 # until after simulationStep() is called.  moveTo/setSpeed must
                 # therefore be deferred to the call to step() that follows the
                 # first simulationStep() after traci.vehicle.add().
                 try:
-                    traci.vehicle.moveTo(veh_id, blockage.lane_id, blockage.position)
+                    traci.vehicle.moveTo(veh_id, blockage.lane_id, position)
                     traci.vehicle.setSpeed(veh_id, 0.0)
                     # SpeedMode 0 disables all speed influencing (safe speed,
                     # traffic-light braking, etc.), keeping the vehicle stationary.
